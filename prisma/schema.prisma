@@ -1,0 +1,189 @@
+// Prisma Schema — ExtintorPro
+// Conectar a Supabase: DATABASE_URL en .env
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Usuarios del sistema ───────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  role      Role     @default(CLIENTE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Si es ADMIN: puede gestionar todo
+  // Si es CLIENTE: está vinculado a un cliente
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  // NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  CLIENTE
+}
+
+// ─── NextAuth (requerido) ───────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Clientes ───────────────────────────────────────────────────────────────
+
+model Cliente {
+  id        String   @id @default(cuid())
+  nombre    String
+  rut       String   @unique
+  direccion String?
+  telefono  String?
+  email     String
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  extintores  Extintor[]
+  solicitudes Solicitud[]
+  users       User[]
+
+  @@map("clientes")
+}
+
+// ─── Extintores ─────────────────────────────────────────────────────────────
+
+model Extintor {
+  id        String          @id @default(cuid())
+  codigo    String          @unique // EXT-0041 — usado en el QR
+  tipo      TipoExtintor
+  capacidad String          // "5 kg", "9 L", etc.
+  ubicacion String
+  activo    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  mantenciones Mantencion[]
+
+  // Campos calculados — se derivan de la última mantención
+  // (no se guardan en DB, se computan en la API)
+  // ultimaMantencion: DateTime?
+  // proximaMantencion: DateTime?
+  // estado: EstadoExtintor
+
+  @@map("extintores")
+}
+
+enum TipoExtintor {
+  CO2
+  PQS   // Polvo Químico Seco
+  AGUA
+  ESPUMA
+  HCFC  // Agentes limpios
+}
+
+// ─── Mantenciones ───────────────────────────────────────────────────────────
+
+model Mantencion {
+  id          String          @id @default(cuid())
+  fecha       DateTime        // fecha en que se realizó
+  proximaFecha DateTime       // fecha de la próxima (generalmente +1 año)
+  tecnico     String?         // nombre del técnico
+  observaciones String?       @db.Text
+  estado      EstadoMantencion @default(PROGRAMADA)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  extintorId String
+  extintor   Extintor @relation(fields: [extintorId], references: [id])
+
+  solicitudId String?
+  solicitud   Solicitud? @relation(fields: [solicitudId], references: [id])
+
+  @@map("mantenciones")
+}
+
+enum EstadoMantencion {
+  PROGRAMADA
+  COMPLETADA
+  CANCELADA
+}
+
+// ─── Solicitudes de mantención ──────────────────────────────────────────────
+
+model Solicitud {
+  id            String          @id @default(cuid())
+  fechaSolicitada DateTime?     // fecha preferida por el cliente
+  observaciones String?         @db.Text
+  estado        EstadoSolicitud @default(PENDIENTE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  // Extintores específicos solicitados
+  extintoresIds String[] // array de IDs de extintores
+
+  mantenciones Mantencion[]
+
+  @@map("solicitudes")
+}
+
+enum EstadoSolicitud {
+  PENDIENTE   // cliente la envió, admin no ha respondido
+  ACEPTADA    // admin aceptó y agendó
+  RECHAZADA
+  COMPLETADA
+}
