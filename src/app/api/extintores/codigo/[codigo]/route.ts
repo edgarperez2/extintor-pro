@@ -1,13 +1,13 @@
-// src/app/api/extintores/codigo/[codigo]/route.ts
-// Ruta PÚBLICA — no requiere autenticación
-// Es la que se llama al escanear el QR del extintor
 export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
 function getPrisma() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
@@ -23,7 +23,7 @@ export async function GET(
         cliente: { select: { nombre: true, direccion: true } },
         mantenciones: {
           orderBy: { fecha: "desc" },
-          take: 5, // últimas 5 mantenciones para el historial
+          take: 5,
         },
       },
     });
@@ -32,27 +32,20 @@ export async function GET(
       return NextResponse.json({ error: "Extintor no encontrado" }, { status: 404 });
     }
 
-    // Calcular estado
     const ultima = extintor.mantenciones[0];
     let estado = "SIN_MANTENCION";
     let diasRestantes = null;
-    let ultimaMantencion = null;
-    let proximaMantencion = null;
 
     if (ultima) {
       const diff = Math.round(
         (new Date(ultima.proximaFecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
       );
       diasRestantes = diff;
-      ultimaMantencion = ultima.fecha;
-      proximaMantencion = ultima.proximaFecha;
-
       if (diff < 0) estado = "VENCIDO";
       else if (diff <= 30) estado = "PROXIMO";
       else estado = "AL_DIA";
     }
 
-    // Respuesta pública — solo datos necesarios, sin info sensible
     return NextResponse.json({
       codigo: extintor.codigo,
       tipo: extintor.tipo,
@@ -61,8 +54,8 @@ export async function GET(
       cliente: extintor.cliente.nombre,
       estado,
       diasRestantes,
-      ultimaMantencion,
-      proximaMantencion,
+      ultimaMantencion: ultima?.fecha ?? null,
+      proximaMantencion: ultima?.proximaFecha ?? null,
       historial: extintor.mantenciones.map((m) => ({
         fecha: m.fecha,
         tecnico: m.tecnico,
