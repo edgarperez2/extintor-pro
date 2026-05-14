@@ -1,7 +1,7 @@
 // src/app/api/extintores/codigo/[codigo]/route.ts
 // Ruta PÚBLICA — no requiere autenticación
 // Es la que se llama al escanear el QR del extintor
-
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";

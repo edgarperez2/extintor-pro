@@ -1,5 +1,6 @@
 // Ficha pública del extintor — se accede escaneando el QR
 // No requiere autenticación
+export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 
 async function getExtintor(codigo: string) {
