@@ -1,4 +1,5 @@
 // src/app/api/extintores/[id]/route.ts
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, TipoExtintor } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";

@@ -1,6 +1,6 @@
 // src/app/api/dashboard/route.ts
 // Métricas generales para el panel admin
-
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";

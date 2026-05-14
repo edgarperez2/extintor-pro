@@ -1,4 +1,5 @@
 // src/app/api/mantenciones/route.ts
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, EstadoMantencion } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
