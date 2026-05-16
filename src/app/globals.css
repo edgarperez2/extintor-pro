@@ -5,5 +5,57 @@
 }
 
 body {
-  font-family: sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.nav-link {
+  transition: background 0.1s, color 0.1s;
+}
+.nav-link:hover {
+  background: #F0EFEA !important;
+  color: #1a1a1a !important;
+}
+
+.table-row {
+  transition: background 0.1s;
+  cursor: default;
+}
+.table-row:hover {
+  background: #FAFAF8 !important;
+}
+
+.card-hover {
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.card-hover:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07) !important;
+  border-color: #D0CFC7 !important;
+}
+
+.btn-ghost {
+  transition: background 0.1s;
+}
+.btn-ghost:hover {
+  background: #F5F4EF !important;
+}
+
+.btn-primary {
+  transition: opacity 0.15s;
+}
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #EEEDE8 25%, #E5E4DE 50%, #EEEDE8 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
 }
