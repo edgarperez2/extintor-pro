@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Flame, LayoutGrid, ClipboardList, LogOut } from "lucide-react";
+import { Flame, LayoutGrid, ClipboardList, LogOut, FileText } from "lucide-react";
 
 const navItems = [
   { href: "/cliente", label: "Mis extintores", icon: LayoutGrid },
+  { href: "/cliente/solicitudes", label: "Mis solicitudes", icon: FileText },
   { href: "/cliente/solicitar", label: "Solicitar mantención", icon: ClipboardList },
 ];
 

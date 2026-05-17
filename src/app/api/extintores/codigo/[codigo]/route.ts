@@ -1,69 +1,35 @@
 export const dynamic = "force-dynamic";
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 
 function getPrisma() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-  const adapter = new PrismaPg(pool);
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
   return new PrismaClient({ adapter });
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { codigo: string } }
-) {
+export async function GET(_req: NextRequest, { params }: { params: { codigo: string } }) {
   const prisma = getPrisma();
   try {
-    const extintor = await prisma.extintor.findUnique({
-      where: { codigo: params.codigo.toUpperCase() },
+    const extintor = await prisma.extintor.findFirst({
+      where: { codigo: params.codigo, activo: true },
       include: {
-        cliente: { select: { nombre: true, direccion: true } },
-        mantenciones: {
-          orderBy: { fecha: "desc" },
-          take: 5,
-        },
+        cliente: { select: { nombre: true, rut: true, email: true, telefono: true } },
+        mantenciones: { orderBy: { fecha: "desc" }, take: 10 },
       },
     });
-
-    if (!extintor || !extintor.activo) {
-      return NextResponse.json({ error: "Extintor no encontrado" }, { status: 404 });
-    }
-
+    if (!extintor) return NextResponse.json({ error: "Extintor no encontrado" }, { status: 404 });
     const ultima = extintor.mantenciones[0];
     let estado = "SIN_MANTENCION";
-    let diasRestantes = null;
-
+    let diasRestantes: number | null = null;
     if (ultima) {
-      const diff = Math.round(
-        (new Date(ultima.proximaFecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
-      diasRestantes = diff;
-      if (diff < 0) estado = "VENCIDO";
-      else if (diff <= 30) estado = "PROXIMO";
+      diasRestantes = Math.round((new Date(ultima.proximaFecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (diasRestantes < 0) estado = "VENCIDO";
+      else if (diasRestantes <= 30) estado = "PROXIMO";
       else estado = "AL_DIA";
     }
-
-    return NextResponse.json({
-      codigo: extintor.codigo,
-      tipo: extintor.tipo,
-      capacidad: extintor.capacidad,
-      ubicacion: extintor.ubicacion,
-      cliente: extintor.cliente.nombre,
-      estado,
-      diasRestantes,
-      ultimaMantencion: ultima?.fecha ?? null,
-      proximaMantencion: ultima?.proximaFecha ?? null,
-      historial: extintor.mantenciones.map((m) => ({
-        fecha: m.fecha,
-        tecnico: m.tecnico,
-        estado: m.estado,
-      })),
-    });
+    return NextResponse.json({ ...extintor, estado, diasRestantes });
   } catch (error) {
-    console.error("Error GET /api/extintores/codigo/[codigo]:", error);
     return NextResponse.json({ error: "Error al obtener extintor" }, { status: 500 });
   } finally {
     await prisma.$disconnect();

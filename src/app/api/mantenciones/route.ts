@@ -1,5 +1,4 @@
-// src/app/api/mantenciones/route.ts
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, EstadoMantencion } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -9,57 +8,35 @@ function getPrisma() {
   return new PrismaClient({ adapter });
 }
 
-// GET /api/mantenciones — listar mantenciones con filtros opcionales
-export async function GET(req: NextRequest) {
+export async function GET() {
   const prisma = getPrisma();
   try {
-    const { searchParams } = new URL(req.url);
-    const extintorId = searchParams.get("extintorId");
-    const clienteId = searchParams.get("clienteId");
-    const estado = searchParams.get("estado") as EstadoMantencion | null;
-
     const mantenciones = await prisma.mantencion.findMany({
-      where: {
-        ...(extintorId ? { extintorId } : {}),
-        ...(estado ? { estado } : {}),
-        ...(clienteId
-          ? { extintor: { clienteId } }
-          : {}),
-      },
       include: {
         extintor: {
-          include: {
-            cliente: { select: { id: true, nombre: true } },
-          },
+          include: { cliente: { select: { nombre: true } } },
         },
       },
-      orderBy: { proximaFecha: "asc" },
+      orderBy: { fecha: "desc" },
     });
-
     return NextResponse.json(mantenciones);
-  } catch (error) {
-    console.error("Error GET /api/mantenciones:", error);
+  } catch {
     return NextResponse.json({ error: "Error al obtener mantenciones" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// POST /api/mantenciones — registrar una mantención realizada
 export async function POST(req: NextRequest) {
   const prisma = getPrisma();
   try {
     const body = await req.json();
-    const { extintorId, fecha, tecnico, observaciones, solicitudId } = body;
+    const { extintorId, fecha, tecnico, observaciones } = body;
 
     if (!extintorId || !fecha) {
-      return NextResponse.json(
-        { error: "extintorId y fecha son obligatorios" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "extintorId y fecha son obligatorios" }, { status: 400 });
     }
 
-    // La próxima mantención es exactamente 1 año después
     const fechaMantencion = new Date(fecha);
     const proximaFecha = new Date(fechaMantencion);
     proximaFecha.setFullYear(proximaFecha.getFullYear() + 1);
@@ -69,25 +46,18 @@ export async function POST(req: NextRequest) {
         extintorId,
         fecha: fechaMantencion,
         proximaFecha,
-        tecnico,
-        observaciones,
+        tecnico: tecnico || null,
+        observaciones: observaciones || null,
         estado: EstadoMantencion.COMPLETADA,
-        ...(solicitudId ? { solicitudId } : {}),
       },
       include: {
-        extintor: {
-          include: {
-            cliente: { select: { nombre: true, email: true } },
-          },
-        },
+        extintor: { include: { cliente: { select: { nombre: true } } } },
       },
     });
 
-    // TODO (Paso 6): enviar email de confirmación al cliente con Resend
-
     return NextResponse.json(mantencion, { status: 201 });
-  } catch (error) {
-    console.error("Error POST /api/mantenciones:", error);
+  } catch (error: any) {
+    if (error.code === "P2025") return NextResponse.json({ error: "Extintor no encontrado" }, { status: 404 });
     return NextResponse.json({ error: "Error al registrar mantención" }, { status: 500 });
   } finally {
     await prisma.$disconnect();

@@ -4,13 +4,13 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const publicPaths = ["/login", "/ext/", "/api/auth", "/api/extintores/codigo"];
+  const publicPaths = ["/login", "/registro", "/ext/", "/api/auth", "/api/extintores/codigo", "/api/registro", "/api/setup"];
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   const token = await getToken({
     req,
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   });
 
   if (!token) {
