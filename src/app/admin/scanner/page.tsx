@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ScanLine, X, CheckCircle, AlertCircle, MonitorSmartphone } from "lucide-react";
+import { ScanLine, X, CheckCircle, AlertCircle } from "lucide-react";
+import jsQR from "jsqr";
 
 export default function ScannerPage() {
   const router = useRouter();
@@ -14,14 +15,8 @@ export default function ScannerPage() {
   const [error, setError] = useState("");
   const [codigoDetectado, setCodigoDetectado] = useState("");
   const [codigoManual, setCodigoManual] = useState("");
-  const [tieneDetector, setTieneDetector] = useState<boolean | null>(null);
 
-  // Detectar soporte de BarcodeDetector al montar
-  useEffect(() => {
-    setTieneDetector("BarcodeDetector" in window);
-  }, []);
-
-  // Limpieza garantizada al desmontar la página
+  // Limpieza garantizada al salir de la página
   useEffect(() => {
     return () => { pararCamara(); };
   }, []);
@@ -47,26 +42,31 @@ export default function ScannerPage() {
 
       setEstado("scanning");
 
-      // Solo escanear si BarcodeDetector está disponible
-      if ("BarcodeDetector" in window) {
-        const detector = new (window as any).BarcodeDetector({ formats: ["qr_code"] });
-        intervalRef.current = setInterval(async () => {
-          const v = videoRef.current;
-          const c = canvasRef.current;
-          if (!v || !c || v.readyState < 2 || v.videoWidth === 0) return;
-          c.width = v.videoWidth;
-          c.height = v.videoHeight;
-          c.getContext("2d")!.drawImage(v, 0, 0);
-          try {
-            const codes = await detector.detect(c);
-            if (codes.length > 0) onDetectado(codes[0].rawValue);
-          } catch {}
-        }, 300);
-      }
+      // Escanear frames con jsQR (funciona en todos los navegadores)
+      intervalRef.current = setInterval(() => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        if (!v || !c || v.readyState < 2 || v.videoWidth === 0) return;
+
+        c.width = v.videoWidth;
+        c.height = v.videoHeight;
+        const ctx = c.getContext("2d", { willReadFrequently: true })!;
+        ctx.drawImage(v, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, c.width, c.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+
+        if (code) {
+          onDetectado(code.data);
+        }
+      }, 250);
+
     } catch (err: any) {
       const msg = (err?.message ?? err?.name ?? "").toLowerCase();
       if (msg.includes("notallowed") || msg.includes("denied") || msg.includes("permission")) {
-        setError("Permiso denegado. Habilita el acceso a la cámara en la configuración de tu navegador.");
+        setError("Permiso denegado. Ve a la configuración del navegador y permite el acceso a la cámara.");
       } else if (msg.includes("notfound") || msg.includes("devicenotfound")) {
         setError("No se encontró ninguna cámara en este dispositivo.");
       } else if (msg.includes("notreadable") || msg.includes("trackstart")) {
@@ -82,20 +82,16 @@ export default function ScannerPage() {
     const codigo = partes.length > 1
       ? partes.pop()!.split("/")[0].toUpperCase()
       : valor.trim().toUpperCase();
+
     setCodigoDetectado(codigo);
     setEstado("detectado");
-    detenerEscaner();
+    pararCamara();
     setTimeout(() => router.push(`/ext/${codigo}`), 1100);
   }
 
   function detenerEscaner() {
     pararCamara();
     setEstado("idle");
-  }
-
-  function irAExtintor() {
-    const c = codigoManual.trim().toUpperCase();
-    if (c) router.push(`/ext/${c}`);
   }
 
   return (
@@ -105,11 +101,11 @@ export default function ScannerPage() {
         Escanea el código QR de un extintor para ver su información.
       </p>
 
-      {/* Visor */}
+      {/* Visor de cámara */}
       <div style={{ background: "#fff", border: "1px solid #EBEBEB", borderRadius: "14px", overflow: "hidden", marginBottom: "1.25rem" }}>
         <div style={{ position: "relative", background: "#111", aspectRatio: "4/3", minHeight: "240px", display: "flex", alignItems: "center", justifyContent: "center" }}>
 
-          {/* Video — siempre en el DOM, oculto cuando no escanea */}
+          {/* Video — siempre en el DOM */}
           <video
             ref={videoRef}
             muted
@@ -121,14 +117,13 @@ export default function ScannerPage() {
               display: estado === "scanning" ? "block" : "none",
             }}
           />
-          {/* Canvas oculto para detección */}
+          {/* Canvas oculto para jsQR */}
           <canvas ref={canvasRef} style={{ display: "none" }} />
 
-          {/* Marco de escaneo */}
+          {/* Marco visual de escaneo */}
           {estado === "scanning" && (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
               <div style={{ width: "210px", height: "210px", position: "relative" }}>
-                {/* Esquinas */}
                 {[
                   { top: 0, left: 0, borderWidth: "3px 0 0 3px" },
                   { top: 0, right: 0, borderWidth: "3px 3px 0 0" },
@@ -141,7 +136,7 @@ export default function ScannerPage() {
             </div>
           )}
 
-          {/* Idle */}
+          {/* Estado: idle */}
           {estado === "idle" && (
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <div style={{ width: "72px", height: "72px", background: "rgba(226,75,74,0.15)", borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem" }}>
@@ -151,29 +146,17 @@ export default function ScannerPage() {
             </div>
           )}
 
-          {/* Detectado */}
+          {/* Estado: detectado */}
           {estado === "detectado" && (
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <CheckCircle size={52} color="#27AE60" style={{ marginBottom: "12px" }} />
-              <p style={{ color: "#fff", fontSize: "15px", fontWeight: "600", marginBottom: "4px" }}>
-                {codigoDetectado}
-              </p>
+              <p style={{ color: "#fff", fontSize: "15px", fontWeight: "600", marginBottom: "4px" }}>{codigoDetectado}</p>
               <p style={{ color: "#aaa", fontSize: "13px" }}>Redirigiendo...</p>
             </div>
           )}
         </div>
 
-        {/* Aviso si BarcodeDetector no está disponible */}
-        {estado === "scanning" && tieneDetector === false && (
-          <div style={{ background: "#FFFBEB", borderTop: "1px solid #FCD34D", padding: "10px 14px", display: "flex", gap: "8px", alignItems: "flex-start" }}>
-            <MonitorSmartphone size={14} color="#92400E" style={{ flexShrink: 0, marginTop: "1px" }} />
-            <p style={{ fontSize: "12px", color: "#92400E", lineHeight: "1.4" }}>
-              Tu navegador no soporta lectura de QR automática. Usa <strong>Google Chrome</strong> o <strong>Microsoft Edge</strong> para escanear, o ingresa el código manualmente abajo.
-            </p>
-          </div>
-        )}
-
-        {/* Botones */}
+        {/* Botón control */}
         <div style={{ padding: "1rem" }}>
           {estado !== "scanning" ? (
             <button
@@ -210,12 +193,12 @@ export default function ScannerPage() {
           <input
             value={codigoManual}
             onChange={e => setCodigoManual(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === "Enter" && irAExtintor()}
+            onKeyDown={e => e.key === "Enter" && codigoManual.trim() && router.push(`/ext/${codigoManual.trim()}`)}
             placeholder="EXT-0001"
             style={{ flex: 1, padding: "9px 12px", borderRadius: "8px", border: "1px solid #E5E4DC", fontSize: "13.5px", outline: "none", fontFamily: "inherit" }}
           />
           <button
-            onClick={irAExtintor}
+            onClick={() => codigoManual.trim() && router.push(`/ext/${codigoManual.trim()}`)}
             disabled={!codigoManual.trim()}
             style={{ padding: "9px 18px", background: "linear-gradient(135deg, #E24B4A, #C0392B)", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13.5px", fontWeight: "600", cursor: codigoManual.trim() ? "pointer" : "not-allowed", opacity: codigoManual.trim() ? 1 : 0.5, fontFamily: "inherit" }}
           >
