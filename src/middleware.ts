@@ -5,7 +5,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const publicPaths = ["/login", "/registro", "/ext/", "/api/auth", "/api/extintores/codigo", "/api/registro", "/api/setup"];
-  const isPublic = publicPaths.some((p) => pathname.startsWith(p));
+  const isPublic = pathname === "/" || publicPaths.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   const token = await getToken({
