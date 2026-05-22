@@ -19,8 +19,14 @@ export async function middleware(req: NextRequest) {
 
   const role = token.role as string;
 
-  if (pathname.startsWith("/admin") && role !== "ADMIN") {
+  // Solo ADMIN y OPERADOR pueden entrar al panel admin
+  if (pathname.startsWith("/admin") && role !== "ADMIN" && role !== "OPERADOR") {
     return NextResponse.redirect(new URL("/cliente", req.url));
+  }
+
+  // Solo ADMIN puede gestionar usuarios
+  if (pathname.startsWith("/admin/usuarios") && role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/admin", req.url));
   }
 
   if (pathname.startsWith("/cliente") && role !== "CLIENTE") {

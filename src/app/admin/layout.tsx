@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { LayoutDashboard, Users, Flame, Wrench, Bell, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Flame, Wrench, Bell, LogOut, ScanLine, UserCog } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +11,11 @@ const navItems = [
   { href: "/admin/extintores", label: "Extintores", icon: Flame },
   { href: "/admin/mantenciones", label: "Mantenciones", icon: Wrench },
   { href: "/admin/solicitudes", label: "Solicitudes", icon: Bell },
+  { href: "/admin/scanner", label: "Escanear QR", icon: ScanLine },
+];
+
+const adminOnlyItems = [
+  { href: "/admin/usuarios", label: "Usuarios", icon: UserCog },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { data: session } = useSession();
   const name = session?.user?.name ?? session?.user?.email ?? "Admin";
   const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+  const role = (session?.user as any)?.role as string;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F5F4EF" }}>
@@ -48,7 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: "10px 8px" }}>
-          {navItems.map((item) => {
+          {[...navItems, ...(role === "ADMIN" ? adminOnlyItems : [])].map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
             return (
@@ -88,7 +94,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div style={{ fontSize: "13px", fontWeight: "500", color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {name}
               </div>
-              <div style={{ fontSize: "11px", color: "#aaa", marginTop: "1px" }}>Administrador</div>
+              <div style={{ fontSize: "11px", color: "#aaa", marginTop: "1px" }}>{role === "ADMIN" ? "Administrador" : "Operador"}</div>
             </div>
           </div>
           <button

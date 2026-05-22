@@ -34,6 +34,7 @@ model User {
 
 enum Role {
   ADMIN
+  OPERADOR
   CLIENTE
 }
 

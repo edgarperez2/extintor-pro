@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, QrCode, Printer } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface Cliente { id: string; nombre: string; }
 
@@ -32,6 +33,70 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #E5E4DC", fontSize: "13.5px", outline: "none",
   fontFamily: "inherit", boxSizing: "border-box",
 };
+
+function QRModal({ extintor, onClose }: { extintor: Extintor; onClose: () => void }) {
+  const url = typeof window !== "undefined" ? `${window.location.origin}/ext/${extintor.codigo}` : `/ext/${extintor.codigo}`;
+
+  function imprimir() {
+    const win = window.open("", "_blank", "width=400,height=500");
+    if (!win) return;
+    const svgEl = document.getElementById("qr-svg-print");
+    const svgStr = svgEl ? svgEl.outerHTML : "";
+    win.document.write(`
+      <html><head><title>QR ${extintor.codigo}</title>
+      <style>
+        body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }
+        .label { text-align: center; border: 2px solid #333; border-radius: 12px; padding: 20px 24px; width: 240px; }
+        .logo { font-size: 13px; font-weight: 700; color: #E24B4A; margin-bottom: 12px; letter-spacing: 0.05em; }
+        .codigo { font-size: 22px; font-weight: 700; color: #1a1a1a; margin: 10px 0 4px; }
+        .tipo { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .ubicacion { font-size: 11px; color: #888; margin-bottom: 12px; }
+        .url { font-size: 9px; color: #aaa; word-break: break-all; }
+        @media print { body { margin: 0; } }
+      </style></head><body>
+      <div class="label">
+        <div class="logo">EXTINTOR PRO</div>
+        ${svgStr}
+        <div class="codigo">${extintor.codigo}</div>
+        <div class="tipo">${extintor.tipo} · ${extintor.capacidad}</div>
+        <div class="ubicacion">${extintor.ubicacion}</div>
+        <div class="url">${url}</div>
+      </div>
+      <script>window.onload=()=>{window.print();window.close();}<\/script>
+      </body></html>`);
+    win.document.close();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div style={{ background: "#fff", borderRadius: "16px", width: "100%", maxWidth: "380px", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+        <div style={{ background: "linear-gradient(135deg, #E24B4A, #B22020)", padding: "1.25rem 1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: "15px", fontWeight: "600", color: "#fff" }}>Código QR — {extintor.codigo}</span>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "6px", padding: "4px", cursor: "pointer", display: "flex" }}><X size={16} color="#fff" /></button>
+        </div>
+        <div style={{ padding: "1.75rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+          {/* Label preview */}
+          <div style={{ border: "2px solid #E5E4DC", borderRadius: "12px", padding: "20px 24px", textAlign: "center", width: "240px" }}>
+            <div style={{ fontSize: "11px", fontWeight: "700", color: "#E24B4A", letterSpacing: "0.08em", marginBottom: "12px" }}>EXTINTOR PRO</div>
+            <QRCodeSVG id="qr-svg-print" value={url} size={160} level="M" />
+            <div style={{ fontSize: "18px", fontWeight: "700", color: "#1a1a1a", marginTop: "10px" }}>{extintor.codigo}</div>
+            <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>{extintor.tipo} · {extintor.capacidad}</div>
+            <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>{extintor.ubicacion}</div>
+          </div>
+          <p style={{ fontSize: "12px", color: "#888", textAlign: "center", maxWidth: "260px" }}>
+            Al escanear este QR se mostrará la información y el historial del extintor.
+          </p>
+          <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+            <button onClick={onClose} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #E5E4DC", background: "#fff", fontSize: "13.5px", cursor: "pointer", fontFamily: "inherit" }}>Cerrar</button>
+            <button onClick={imprimir} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg, #E24B4A, #C0392B)", color: "#fff", fontSize: "13.5px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }}>
+              <Printer size={14} /> Imprimir
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type FormData = { clienteId: string; tipo: string; capacidad: string; ubicacion: string };
 
@@ -152,7 +217,7 @@ export default function ExtintoresPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
-  const [modal, setModal] = useState<"crear" | "editar" | "eliminar" | null>(null);
+  const [modal, setModal] = useState<"crear" | "editar" | "eliminar" | "qr" | null>(null);
   const [seleccionado, setSeleccionado] = useState<Extintor | null>(null);
 
   function cargar() {
@@ -195,6 +260,9 @@ export default function ExtintoresPage() {
       )}
       {modal === "eliminar" && seleccionado && (
         <ConfirmModal extintor={seleccionado} onClose={() => { setModal(null); setSeleccionado(null); }} onConfirm={handleDelete} />
+      )}
+      {modal === "qr" && seleccionado && (
+        <QRModal extintor={seleccionado} onClose={() => { setModal(null); setSeleccionado(null); }} />
       )}
 
       <div style={{ padding: "1.5rem" }}>
@@ -239,6 +307,11 @@ export default function ExtintoresPage() {
                   <td style={{ padding: "11px 1.25rem" }}><Badge estado={ext.estado} dias={ext.diasRestantes} /></td>
                   <td style={{ padding: "11px 1.25rem" }}>
                     <div style={{ display: "flex", gap: "6px" }}>
+                      <button onClick={() => { setSeleccionado(ext); setModal("qr"); }}
+                        title="Ver QR"
+                        style={{ padding: "5px", border: "1px solid #E5E4DC", borderRadius: "6px", background: "#fff", cursor: "pointer", display: "flex" }}>
+                        <QrCode size={13} color="#666" />
+                      </button>
                       <button onClick={() => { setSeleccionado(ext); setModal("editar"); }}
                         style={{ padding: "5px", border: "1px solid #E5E4DC", borderRadius: "6px", background: "#fff", cursor: "pointer", display: "flex" }}>
                         <Pencil size={13} color="#666" />
