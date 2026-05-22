@@ -119,11 +119,3 @@ extintor-pro/
 > Los clientes usan **magic link** — recibirán un email para ingresar sin contraseña.
 
 ---
-
-## Próximos pasos
-
-- [ ] Paso 2: API Routes (CRUD de clientes, extintores, mantenciones)
-- [ ] Paso 3: NextAuth con roles admin y cliente
-- [ ] Paso 4: Panel admin UI
-- [ ] Paso 5: Portal cliente + QR
-- [ ] Paso 6: Notificaciones automáticas con Resend (cron job)
