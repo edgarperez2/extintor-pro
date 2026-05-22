@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, Role } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
@@ -13,7 +13,7 @@ export async function GET() {
   const prisma = getPrisma();
   try {
     const usuarios = await prisma.user.findMany({
-      where: { role: { in: [Role.ADMIN, Role.OPERADOR] } },
+      where: { role: { not: "CLIENTE" as any } },
       select: { id: true, email: true, name: true, role: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     });
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (password.length < 6) {
       return NextResponse.json({ error: "La contrasena debe tener al menos 6 caracteres" }, { status: 400 });
     }
-    const rolAsignado: Role = role === "OPERADOR" ? Role.OPERADOR : Role.ADMIN;
+    const rolAsignado = (role === "OPERADOR" ? "OPERADOR" : "ADMIN") as any;
     const hash = await bcrypt.hash(password, 12);
     const usuario = await prisma.user.create({
       data: { name, email, password: hash, role: rolAsignado },
