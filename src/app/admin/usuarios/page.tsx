@@ -29,13 +29,18 @@ function NuevoUsuarioModal({ onClose, onCreated }: { onClose: () => void; onCrea
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  // Estado para cuando el email ya existe: ofrecer promover
+  const [emailDuplicado, setEmailDuplicado] = useState(false);
+  const set = (k: string, v: string) => {
+    setForm(f => ({ ...f, [k]: v }));
+    if (k === "email") setEmailDuplicado(false); // resetear si cambia email
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.email || !form.password) { setError("Todos los campos son obligatorios"); return; }
     if (form.password.length < 6) { setError("La contraseña debe tener al menos 6 caracteres"); return; }
-    setSaving(true); setError("");
+    setSaving(true); setError(""); setEmailDuplicado(false);
     try {
       const res = await fetch("/api/usuarios", {
         method: "POST",
@@ -43,7 +48,28 @@ function NuevoUsuarioModal({ onClose, onCreated }: { onClose: () => void; onCrea
         body: JSON.stringify(form),
       });
       const data = await res.json();
+      if (res.status === 409) {
+        // Email ya existe → ofrecer promover
+        setEmailDuplicado(true);
+        setError("");
+        setSaving(false);
+        return;
+      }
       if (!res.ok) { setError(data.error || "Error"); setSaving(false); return; }
+      onCreated(data); onClose();
+    } catch { setError("Error de conexion"); setSaving(false); }
+  }
+
+  async function handlePromover() {
+    setSaving(true); setError("");
+    try {
+      const res = await fetch("/api/usuarios", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, role: form.role }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Error al promover"); setSaving(false); return; }
       onCreated(data); onClose();
     } catch { setError("Error de conexion"); setSaving(false); }
   }
@@ -57,6 +83,26 @@ function NuevoUsuarioModal({ onClose, onCreated }: { onClose: () => void; onCrea
         </div>
         <form onSubmit={handleSubmit} style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "14px" }}>
           {error && <div style={{ background: "#FCEBEB", border: "1px solid #F7C1C1", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#791F1F" }}>{error}</div>}
+
+          {/* Email ya existe → opción de promover */}
+          {emailDuplicado && (
+            <div style={{ background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: "10px", padding: "12px 14px" }}>
+              <p style={{ fontSize: "13px", color: "#92400E", fontWeight: "500", marginBottom: "8px" }}>
+                ⚠️ Este email ya está registrado en el sistema.
+              </p>
+              <p style={{ fontSize: "12.5px", color: "#78350F", marginBottom: "10px", lineHeight: "1.4" }}>
+                Puedes cambiar su rol a <strong>{ROL_INFO[form.role]?.label}</strong> sin crear una nueva cuenta.
+              </p>
+              <button
+                type="button"
+                onClick={handlePromover}
+                disabled={saving}
+                style={{ width: "100%", padding: "9px", background: "#D97706", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}
+              >
+                {saving ? "Cambiando rol..." : `Cambiar rol a ${ROL_INFO[form.role]?.label}`}
+              </button>
+            </div>
+          )}
           <div>
             <label style={{ fontSize: "12px", fontWeight: "500", color: "#555", display: "block", marginBottom: "5px" }}>Nombre completo *</label>
             <input style={inputStyle} value={form.name} onChange={e => set("name", e.target.value)} placeholder="Juan Perez" />

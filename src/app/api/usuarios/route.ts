@@ -50,3 +50,26 @@ export async function POST(req: NextRequest) {
     await prisma.$disconnect();
   }
 }
+
+// Promover usuario existente (buscar por email y cambiar rol)
+export async function PATCH(req: NextRequest) {
+  const prisma = getPrisma();
+  try {
+    const { email, role } = await req.json();
+    if (!email || !role) {
+      return NextResponse.json({ error: "email y rol son obligatorios" }, { status: 400 });
+    }
+    const rolAsignado = (role === "OPERADOR" ? "OPERADOR" : "ADMIN") as any;
+    const usuario = await prisma.user.update({
+      where: { email },
+      data: { role: rolAsignado },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
+    });
+    return NextResponse.json(usuario);
+  } catch (error: any) {
+    if (error.code === "P2025") return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Error al promover usuario" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
