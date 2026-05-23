@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Search, X, QrCode, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, QrCode, Printer, FileDown } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 interface Cliente { id: string; nombre: string; }
@@ -212,6 +212,25 @@ function ConfirmModal({ extintor, onClose, onConfirm }: { extintor: Extintor; on
   );
 }
 
+async function exportarExcel(extintores: Extintor[]) {
+  const XLSX = await import("xlsx");
+  const datos = extintores.map(e => ({
+    "Código":           e.codigo,
+    "Cliente":          e.cliente.nombre,
+    "Tipo":             e.tipo,
+    "Capacidad":        e.capacidad,
+    "Ubicación":        e.ubicacion,
+    "Última mantención": e.ultimaMantencion ? new Date(e.ultimaMantencion).toLocaleDateString("es-CL") : "Sin mantención",
+    "Próxima mantención": e.proximaMantencion ? new Date(e.proximaMantencion).toLocaleDateString("es-CL") : "—",
+    "Estado":           e.estado === "AL_DIA" ? "Al día" : e.estado === "PROXIMO" ? `Vence en ${e.diasRestantes}d` : e.estado === "VENCIDO" ? "Vencido" : "Sin mantención",
+  }));
+  const ws = XLSX.utils.json_to_sheet(datos);
+  ws["!cols"] = [14, 24, 10, 12, 24, 18, 18, 16].map(w => ({ wch: w }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Extintores");
+  XLSX.writeFile(wb, `extintores_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
+
 export default function ExtintoresPage() {
   const [extintores, setExtintores] = useState<Extintor[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -274,6 +293,12 @@ export default function ExtintoresPage() {
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar extintor..."
                 style={{ padding: "8px 12px 8px 32px", borderRadius: "8px", border: "1px solid #E5E4DC", fontSize: "13px", width: "220px", fontFamily: "inherit", outline: "none" }} />
             </div>
+            <button
+              onClick={() => exportarExcel(filtrados)}
+              disabled={filtrados.length === 0}
+              style={{ display: "flex", alignItems: "center", gap: "7px", padding: "8px 14px", background: "#fff", color: "#555", border: "1px solid #E5E4DC", borderRadius: "8px", fontSize: "13px", cursor: filtrados.length === 0 ? "not-allowed" : "pointer", opacity: filtrados.length === 0 ? 0.5 : 1, fontFamily: "inherit" }}>
+              <FileDown size={14} /> Exportar Excel
+            </button>
             <button onClick={() => setModal("crear")}
               style={{ display: "flex", alignItems: "center", gap: "7px", padding: "8px 14px", background: "linear-gradient(135deg, #E24B4A, #C0392B)", color: "#fff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: "pointer", boxShadow: "0 3px 10px rgba(226,75,74,0.3)", fontFamily: "inherit" }}>
               <Plus size={14} /> Nuevo extintor

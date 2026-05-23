@@ -115,13 +115,14 @@ export default function SolicitudesPage() {
 
   useEffect(() => { cargar(); }, []);
 
-  async function rechazar(id: string) {
-    await fetch(`/api/solicitudes/${id}`, {
+  async function rechazar(s: Solicitud) {
+    if (!confirm(`¿Rechazar la solicitud de ${s.cliente.nombre}? Esta acción notificará al cliente.`)) return;
+    await fetch(`/api/solicitudes/${s.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ estado: "RECHAZADA" }),
     });
-    setSolicitudes(prev => prev.map(s => s.id === id ? { ...s, estado: "RECHAZADA" } : s));
+    setSolicitudes(prev => prev.map(x => x.id === s.id ? { ...x, estado: "RECHAZADA" } : x));
   }
 
   if (loading) return (
@@ -178,7 +179,7 @@ export default function SolicitudesPage() {
                   Aceptar
                 </button>
                 <button
-                  onClick={() => rechazar(s.id)}
+                  onClick={() => rechazar(s)}
                   style={{ padding: "8px 14px", background: "#fff", color: "#666", border: "1px solid #E5E4DC", borderRadius: "7px", fontSize: "12.5px", cursor: "pointer", fontFamily: "inherit" }}>
                   Rechazar
                 </button>
